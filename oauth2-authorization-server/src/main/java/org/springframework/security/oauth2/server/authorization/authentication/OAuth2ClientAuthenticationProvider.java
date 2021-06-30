@@ -15,12 +15,6 @@
  */
 package org.springframework.security.oauth2.server.authorization.authentication;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-import java.util.Map;
-
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -41,6 +35,12 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
+import java.util.Map;
 
 /**
  * An {@link AuthenticationProvider} implementation used for authenticating an OAuth 2.0 Client.
@@ -63,7 +63,6 @@ public class OAuth2ClientAuthenticationProvider implements AuthenticationProvide
 
 	/**
 	 * Constructs an {@code OAuth2ClientAuthenticationProvider} using the provided parameters.
-	 *
 	 * @param registeredClientRepository the repository of registered clients
 	 * @param authorizationService the authorization service
 	 */
@@ -116,6 +115,7 @@ public class OAuth2ClientAuthenticationProvider implements AuthenticationProvide
 		}
 
 		authenticatedCredentials = authenticatedCredentials ||
+				clientAuthentication instanceof OAuth2PublicClientWithoutPKCEAuthenticationToken ||
 				authenticatePkceIfAvailable(clientAuthentication, registeredClient);
 		if (!authenticatedCredentials) {
 			throwInvalidClient();

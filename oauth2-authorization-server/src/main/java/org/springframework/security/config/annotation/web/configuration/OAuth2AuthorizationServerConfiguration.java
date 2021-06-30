@@ -36,6 +36,8 @@ import org.springframework.security.config.annotation.web.configurers.oauth2.ser
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 /**
@@ -63,11 +65,12 @@ public class OAuth2AuthorizationServerConfiguration {
 				.getEndpointsMatcher();
 
 		http
-			.requestMatcher(endpointsMatcher)
+			.requestMatcher(new OrRequestMatcher(endpointsMatcher, authorizationServerConfigurer.getEndpointsMatcherRequiringCsrf()))
 			.authorizeRequests(authorizeRequests ->
 				authorizeRequests.anyRequest().authenticated()
 			)
 			.csrf(csrf -> csrf.ignoringRequestMatchers(endpointsMatcher))
+			.csrf(csrf -> csrf.requireCsrfProtectionMatcher(authorizationServerConfigurer.getEndpointsMatcherRequiringCsrf()))
 			.oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt)
 			.apply(authorizationServerConfigurer);
 	}

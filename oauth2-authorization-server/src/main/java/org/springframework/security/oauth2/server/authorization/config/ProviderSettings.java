@@ -34,6 +34,8 @@ public class ProviderSettings extends Settings {
 	public static final String TOKEN_REVOCATION_ENDPOINT = PROVIDER_SETTING_BASE.concat("token-revocation-endpoint");
 	public static final String TOKEN_INTROSPECTION_ENDPOINT = PROVIDER_SETTING_BASE.concat("token-introspection-endpoint");
 	public static final String OIDC_CLIENT_REGISTRATION_ENDPOINT = PROVIDER_SETTING_BASE.concat("oidc-client-registration-endpoint");
+	public static final String DEVICE_CODE_ENDPOINT = PROVIDER_SETTING_BASE.concat("device-code-endpoint");
+	public static final String DEVICE_CODE_AUTHORIZE_ENDPOINT = PROVIDER_SETTING_BASE.concat("device-code-authorize-endpoint");
 
 	/**
 	 * Constructs a {@code ProviderSettings}.
@@ -184,6 +186,22 @@ public class ProviderSettings extends Settings {
 		return setting(OIDC_CLIENT_REGISTRATION_ENDPOINT, oidcClientRegistrationEndpoint);
 	}
 
+	public String deviceCodeEndpoint() {
+		return setting(DEVICE_CODE_ENDPOINT);
+	}
+
+	public ProviderSettings deviceCodeEndpoint(String deviceCodeEndpoint) {
+		return setting(DEVICE_CODE_ENDPOINT, deviceCodeEndpoint);
+	}
+
+	public String deviceCodeAuthorizeEndPoint() {
+		return setting(DEVICE_CODE_AUTHORIZE_ENDPOINT);
+	}
+
+	public ProviderSettings deviceCodeAuthorizeEndpoint(String deviceCodeAuthorizeEndpoint) {
+		return setting(DEVICE_CODE_AUTHORIZE_ENDPOINT, deviceCodeAuthorizeEndpoint);
+	}
+
 	protected static Map<String, Object> defaultSettings() {
 		Map<String, Object> settings = new HashMap<>();
 		settings.put(AUTHORIZATION_ENDPOINT, "/oauth2/authorize");
@@ -192,6 +210,9 @@ public class ProviderSettings extends Settings {
 		settings.put(TOKEN_REVOCATION_ENDPOINT, "/oauth2/revoke");
 		settings.put(TOKEN_INTROSPECTION_ENDPOINT, "/oauth2/introspect");
 		settings.put(OIDC_CLIENT_REGISTRATION_ENDPOINT, "/connect/register");
+		settings.put(DEVICE_CODE_ENDPOINT, "/oauth2/device_code");
+		settings.put(DEVICE_CODE_AUTHORIZE_ENDPOINT, "/oauth2/device");
 		return settings;
 	}
+
 }

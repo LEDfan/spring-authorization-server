@@ -116,6 +116,8 @@ public final class InMemoryOAuth2AuthorizationService implements OAuth2Authoriza
 			return matchesAccessToken(authorization, token);
 		} else if (OAuth2TokenType.REFRESH_TOKEN.equals(tokenType)) {
 			return matchesRefreshToken(authorization, token);
+		} else if (tokenType.getValue().equals("device_code")) { // TODO
+			return matchesDeviceCode(authorization, token);
 		}
 		return false;
 	}
@@ -140,5 +142,11 @@ public final class InMemoryOAuth2AuthorizationService implements OAuth2Authoriza
 		OAuth2Authorization.Token<OAuth2RefreshToken> refreshToken =
 				authorization.getToken(OAuth2RefreshToken.class);
 		return refreshToken != null && refreshToken.getToken().getTokenValue().equals(token);
+	}
+
+	private static boolean matchesDeviceCode(OAuth2Authorization authorization, String token) {
+		OAuth2Authorization.Token<OAuth2DeviceCode> authorizationCode =
+				authorization.getToken(OAuth2DeviceCode.class);
+		return authorizationCode != null && authorizationCode.getToken().getTokenValue().equals(token);
 	}
 }

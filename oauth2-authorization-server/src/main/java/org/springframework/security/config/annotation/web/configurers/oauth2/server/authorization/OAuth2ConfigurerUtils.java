@@ -30,9 +30,12 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwsEncoder;
 import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2DeviceCodeService;
 import org.springframework.security.oauth2.server.authorization.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2DeviceCode;
+import org.springframework.security.oauth2.server.authorization.OAuth2DeviceCodeService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.ProviderSettings;
@@ -80,6 +83,18 @@ final class OAuth2ConfigurerUtils {
 			builder.setSharedObject(OAuth2AuthorizationConsentService.class, authorizationConsentService);
 		}
 		return authorizationConsentService;
+	}
+
+	static <B extends HttpSecurityBuilder<B>> OAuth2DeviceCodeService getDeviceCodeService(B builder) {
+		OAuth2DeviceCodeService deviceCodeService = builder.getSharedObject(OAuth2DeviceCodeService.class);
+		if (deviceCodeService == null) {
+			deviceCodeService = getOptionalBean(builder, OAuth2DeviceCodeService.class);
+			if (deviceCodeService == null) {
+				deviceCodeService = new InMemoryOAuth2DeviceCodeService();
+			}
+			builder.setSharedObject(OAuth2DeviceCodeService.class, deviceCodeService);
+		}
+		return deviceCodeService;
 	}
 
 	static <B extends HttpSecurityBuilder<B>> JwtEncoder getJwtEncoder(B builder) {

@@ -15,43 +15,25 @@
  */
 package org.springframework.security.oauth2.server.authorization.authentication;
 
-import java.security.Principal;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
-import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.OAuth2TokenType;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
-import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
-import org.springframework.security.oauth2.core.oidc.OidcIdToken;
-import org.springframework.security.oauth2.core.oidc.OidcScopes;
-import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
-import org.springframework.security.oauth2.jwt.JoseHeader;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.server.authorization.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
-import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationCode;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2DeviceCode;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenCustomizer;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
-import org.springframework.security.oauth2.server.authorization.config.ProviderSettings;
-import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
 
 import static org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthenticationProviderUtils.getAuthenticatedClientElseThrowInvalidClient;
+import static org.springframework.security.oauth2.server.authorization.web.authentication.OAuth2DeviceCodeAuthenticationConverter.DEVICE_CODE;
+
 
 /**
  * An {@link AuthenticationProvider} implementation for the OAuth 2.0 Authorization Code Grant.
@@ -68,50 +50,39 @@ import static org.springframework.security.oauth2.server.authorization.authentic
  * @see <a target="_blank" href="https://tools.ietf.org/html/rfc6749#section-4.1">Section 4.1 Authorization Code Grant</a>
  * @see <a target="_blank" href="https://tools.ietf.org/html/rfc6749#section-4.1.3">Section 4.1.3 Access Token Request</a>
  */
-public class OAuth2AuthorizationCodeAuthenticationProvider extends BaseAuthorizationCodeAuthenticationProvider  {
-	private static final OAuth2TokenType AUTHORIZATION_CODE_TOKEN_TYPE =
-			new OAuth2TokenType(OAuth2ParameterNames.CODE);
+public class OAuth2DeviceCodeAuthenticationProvider extends BaseAuthorizationCodeAuthenticationProvider {
+	private static final OAuth2TokenType DEVICE_CODE_TOKEN_TYPE = new OAuth2TokenType("device_code"); // TODO
+
 	/**
-	 * Constructs an {@code OAuth2AuthorizationCodeAuthenticationProvider} using the provided parameters.
+	 * Constructs an {@code OAuth2DeviceCodeAuthenticationProvider} using the provided parameters.
 	 *
 	 * @param authorizationService the authorization service
 	 * @param jwtEncoder the jwt encoder
 	 */
-	public OAuth2AuthorizationCodeAuthenticationProvider(OAuth2AuthorizationService authorizationService, JwtEncoder jwtEncoder) {
+	public OAuth2DeviceCodeAuthenticationProvider(OAuth2AuthorizationService authorizationService, JwtEncoder jwtEncoder) {
 		super(authorizationService, jwtEncoder);
 	}
 
 	@Override
 	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-		OAuth2AuthorizationCodeAuthenticationToken authorizationCodeAuthentication =
-				(OAuth2AuthorizationCodeAuthenticationToken) authentication;
+		OAuth2DeviceCodeAuthenticationToken deviceCodeAuthentication = (OAuth2DeviceCodeAuthenticationToken) authentication;
 
-		OAuth2ClientAuthenticationToken clientPrincipal =
-				getAuthenticatedClientElseThrowInvalidClient(authorizationCodeAuthentication);
+		OAuth2ClientAuthenticationToken clientPrincipal = getAuthenticatedClientElseThrowInvalidClient(deviceCodeAuthentication);
+
 		RegisteredClient registeredClient = clientPrincipal.getRegisteredClient();
 
-		OAuth2Authorization authorization = this.authorizationService.findByToken(
-				authorizationCodeAuthentication.getCode(), AUTHORIZATION_CODE_TOKEN_TYPE);
+		OAuth2Authorization authorization = this.authorizationService.findByToken(deviceCodeAuthentication.getDeviceCode(), DEVICE_CODE_TOKEN_TYPE);
 		if (authorization == null) {
 			throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_GRANT));
 		}
-		OAuth2Authorization.Token<OAuth2AuthorizationCode> authorizationCode =
-				authorization.getToken(OAuth2AuthorizationCode.class);
+		OAuth2Authorization.Token<OAuth2DeviceCode> deviceCode = authorization.getToken(OAuth2DeviceCode.class);
 
-		OAuth2AuthorizationRequest authorizationRequest = authorization.getAttribute(
-				OAuth2AuthorizationRequest.class.getName());
-
-		if (StringUtils.hasText(authorizationRequest.getRedirectUri()) &&
-				!authorizationRequest.getRedirectUri().equals(authorizationCodeAuthentication.getRedirectUri())) {
-			throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_GRANT));
-		}
-
-		return authenticate(authentication, authorization, registeredClient, clientPrincipal, AuthorizationGrantType.AUTHORIZATION_CODE, authorizationCode);
+		return authenticate(authentication, authorization, registeredClient, clientPrincipal, DEVICE_CODE, deviceCode);
 	}
 
 	@Override
 	public boolean supports(Class<?> authentication) {
-		return OAuth2AuthorizationCodeAuthenticationToken.class.isAssignableFrom(authentication);
+		return OAuth2DeviceCodeAuthenticationToken.class.isAssignableFrom(authentication);
 	}
 
 }

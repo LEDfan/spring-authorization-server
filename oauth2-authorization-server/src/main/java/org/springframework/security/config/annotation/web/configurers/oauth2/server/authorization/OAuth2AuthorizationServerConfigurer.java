@@ -18,6 +18,7 @@ package org.springframework.security.config.annotation.web.configurers.oauth2.se
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -32,6 +33,7 @@ import org.springframework.security.config.annotation.web.configurers.ExceptionH
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2DeviceCodeService;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2TokenIntrospectionAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2TokenRevocationAuthenticationProvider;
@@ -40,6 +42,8 @@ import org.springframework.security.oauth2.server.authorization.config.ProviderS
 import org.springframework.security.oauth2.server.authorization.oidc.authentication.OidcClientRegistrationAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.oidc.web.OidcClientRegistrationEndpointFilter;
 import org.springframework.security.oauth2.server.authorization.oidc.web.OidcProviderConfigurationEndpointFilter;
+import org.springframework.security.oauth2.server.authorization.web.OAuth2DeviceCodeFilter;
+import org.springframework.security.oauth2.server.authorization.web.OAuth2DeviceAuthorizationFilter;
 import org.springframework.security.oauth2.server.authorization.web.NimbusJwkSetEndpointFilter;
 import org.springframework.security.oauth2.server.authorization.web.OAuth2AuthorizationEndpointFilter;
 import org.springframework.security.oauth2.server.authorization.web.OAuth2AuthorizationServerMetadataEndpointFilter;
@@ -49,6 +53,7 @@ import org.springframework.security.oauth2.server.authorization.web.OAuth2TokenR
 import org.springframework.security.web.access.intercept.FilterSecurityInterceptor;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -88,6 +93,9 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 	private RequestMatcher oidcProviderConfigurationEndpointMatcher;
 	private RequestMatcher authorizationServerMetadataEndpointMatcher;
 	private RequestMatcher oidcClientRegistrationEndpointMatcher;
+	private RequestMatcher deviceCodeEndpointMatcher;
+	private RequestMatcher deviceCodeAuthorizationEndpointMatcher;
+	private RequestMatcher deviceCodeAuthorizationPostEndpointMatcher;
 	private final RequestMatcher endpointsMatcher = (request) ->
 			this.authorizationEndpointMatcher.matches(request) ||
 			getRequestMatcher(OAuth2TokenEndpointConfigurer.class).matches(request) ||
@@ -96,7 +104,9 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 			this.jwkSetEndpointMatcher.matches(request) ||
 			this.oidcProviderConfigurationEndpointMatcher.matches(request) ||
 			this.authorizationServerMetadataEndpointMatcher.matches(request) ||
-			this.oidcClientRegistrationEndpointMatcher.matches(request);
+			this.oidcClientRegistrationEndpointMatcher.matches(request) ||
+			this.deviceCodeEndpointMatcher.matches(request) ||
+			this.deviceCodeAuthorizationEndpointMatcher.matches(request);
 	private String consentPage;
 
 	/**
@@ -203,6 +213,15 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 		return this.endpointsMatcher;
 	}
 
+	/**
+	 * Returns a {@link RequestMatcher} for the authorization server endpoints which do require CSRF protection.
+	 *
+	 * @return a {@link RequestMatcher} for the authorization server endpoints which do require CSRF protection
+	 */
+	public RequestMatcher getEndpointsMatcherRequiringCsrf() {
+		return request -> this.deviceCodeAuthorizationPostEndpointMatcher.matches(request);
+	}
+
 	@Override
 	public void init(B builder) {
 		ProviderSettings providerSettings = OAuth2ConfigurerUtils.getProviderSettings(builder);
@@ -283,16 +302,29 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 								this.tokenRevocationEndpointMatcher));
 		builder.addFilterAfter(postProcess(clientAuthenticationFilter), AbstractPreAuthenticatedProcessingFilter.class);
 
+		OAuth2AuthorizationConsentService authorizationConsentService = OAuth2ConfigurerUtils.getAuthorizationConsentService(builder);
+		OAuth2DeviceCodeService deviceCodeService = OAuth2ConfigurerUtils.getDeviceCodeService(builder);
+		OAuth2AuthorizationService authorizationService = OAuth2ConfigurerUtils.getAuthorizationService(builder);
+
+		RegisteredClientRepository registeredClientRepository = OAuth2ConfigurerUtils.getRegisteredClientRepository(builder);
+
 		OAuth2AuthorizationEndpointFilter authorizationEndpointFilter =
 				new OAuth2AuthorizationEndpointFilter(
-						OAuth2ConfigurerUtils.getRegisteredClientRepository(builder),
-						OAuth2ConfigurerUtils.getAuthorizationService(builder),
-						OAuth2ConfigurerUtils.getAuthorizationConsentService(builder),
+						registeredClientRepository,
+						authorizationService,
+						authorizationConsentService,
 						providerSettings.authorizationEndpoint());
 		if (StringUtils.hasText(this.consentPage)) {
 			authorizationEndpointFilter.setUserConsentUri(this.consentPage);
 		}
 		builder.addFilterBefore(postProcess(authorizationEndpointFilter), AbstractPreAuthenticatedProcessingFilter.class);
+
+		OAuth2DeviceAuthorizationFilter deviceFilter = new OAuth2DeviceAuthorizationFilter(registeredClientRepository,
+				authorizationConsentService, authorizationService, deviceCodeService, providerSettings.deviceCodeAuthorizeEndPoint());
+		builder.addFilterBefore(postProcess(deviceFilter), AbstractPreAuthenticatedProcessingFilter.class);
+
+		OAuth2DeviceCodeFilter oAuth2DeviceCodeFilter = new OAuth2DeviceCodeFilter(authenticationManager, deviceCodeService, this.deviceCodeEndpointMatcher);
+		builder.addFilterBefore(postProcess(oAuth2DeviceCodeFilter), AbstractPreAuthenticatedProcessingFilter.class);
 
 		OAuth2TokenIntrospectionEndpointFilter tokenIntrospectionEndpointFilter =
 				new OAuth2TokenIntrospectionEndpointFilter(
@@ -349,6 +381,20 @@ public final class OAuth2AuthorizationServerConfigurer<B extends HttpSecurityBui
 				OAuth2AuthorizationServerMetadataEndpointFilter.DEFAULT_OAUTH2_AUTHORIZATION_SERVER_METADATA_ENDPOINT_URI, HttpMethod.GET.name());
 		this.oidcClientRegistrationEndpointMatcher = new AntPathRequestMatcher(
 				providerSettings.oidcClientRegistrationEndpoint(), HttpMethod.POST.name());
+		this.deviceCodeEndpointMatcher = new AntPathRequestMatcher(
+				providerSettings.deviceCodeEndpoint(), HttpMethod.POST.name());
+		this.deviceCodeAuthorizationEndpointMatcher = new OrRequestMatcher(
+				new AntPathRequestMatcher(
+						providerSettings.deviceCodeAuthorizeEndPoint(),
+						HttpMethod.GET.name()),
+				new AndRequestMatcher(
+						new AntPathRequestMatcher(providerSettings.deviceCodeAuthorizeEndPoint(), HttpMethod.POST.name()),
+						request -> !Objects.equals(request.getParameter("user_code_action"), "submit")));
+
+		this.deviceCodeAuthorizationPostEndpointMatcher = new AndRequestMatcher(
+				new AntPathRequestMatcher(providerSettings.deviceCodeAuthorizeEndPoint(), HttpMethod.POST.name()),
+				request -> Objects.equals(request.getParameter("user_code_action"), "submit"));
+
 	}
 
 	private static void validateProviderSettings(ProviderSettings providerSettings) {

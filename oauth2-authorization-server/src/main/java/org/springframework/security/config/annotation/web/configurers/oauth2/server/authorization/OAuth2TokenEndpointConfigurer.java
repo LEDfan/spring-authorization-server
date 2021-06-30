@@ -39,6 +39,7 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2RefreshTokenAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.config.ProviderSettings;
 import org.springframework.security.oauth2.server.authorization.web.OAuth2TokenEndpointFilter;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2DeviceCodeAuthenticationProvider;
 import org.springframework.security.web.access.intercept.FilterSecurityInterceptor;
 import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
@@ -187,6 +188,15 @@ public final class OAuth2TokenEndpointConfigurer extends AbstractOAuth2Configure
 			clientCredentialsAuthenticationProvider.setJwtCustomizer(jwtCustomizer);
 		}
 		authenticationProviders.add(clientCredentialsAuthenticationProvider);
+
+		OAuth2DeviceCodeAuthenticationProvider deviceCodeAuthenticationProvider =
+				new OAuth2DeviceCodeAuthenticationProvider(
+						OAuth2ConfigurerUtils.getAuthorizationService(builder),
+						jwtEncoder);
+		if (jwtCustomizer != null) {
+			deviceCodeAuthenticationProvider.setJwtCustomizer(jwtCustomizer);
+		}
+		authenticationProviders.add(deviceCodeAuthenticationProvider);
 
 		return authenticationProviders;
 	}
